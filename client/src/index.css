@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg: #f8fafc;
+    --fg: #0f172a;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  .dark {
+    --bg: #0b1220;
+    --fg: #e2e8f0;
+    --card: #111827;
+    --border: #1f2937;
+    --muted: #94a3b8;
+  }
+
+  html {
+    @apply antialiased scroll-smooth;
+  }
+
+  body {
+    @apply m-0 min-h-screen font-sans text-ink bg-[var(--bg)] text-[var(--fg)];
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
