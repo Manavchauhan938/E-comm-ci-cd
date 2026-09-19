@@ -31,35 +31,32 @@ jobs:
           cache: npm
 
       - name: Install
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Generate Prisma client
-        working-directory: server
-        run: npx prisma generate
+        run: npm run prisma:generate --workspace=server
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ecomm_test?schema=public
 
       - name: Migrate
         working-directory: server
-        run: npx prisma migrate deploy || npx prisma db push
+        run: npx prisma migrate deploy
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ecomm_test?schema=public
 
       - name: Backend tests
-        working-directory: server
-        run: npm test
+        run: npm test --workspace=server
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ecomm_test?schema=public
           JWT_ACCESS_SECRET: test-access-secret-min-32-characters
           JWT_REFRESH_SECRET: test-refresh-secret-min-32-characters
           NODE_ENV: test
+          CLIENT_URL: http://localhost:5173
 
       - name: Frontend tests
-        working-directory: client
-        run: npm test
+        run: npm test --workspace=client
 
       - name: Build client
-        working-directory: client
-        run: npm run build
+        run: npm run build --workspace=client
         env:
           VITE_API_URL: http://localhost:5000/api
