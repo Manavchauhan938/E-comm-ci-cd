@@ -50,3 +50,7 @@ server/.data/
 *.local
 tmp/
 temp/
+
+.netlify/
+.netlify-site.json
+client-dist.zip

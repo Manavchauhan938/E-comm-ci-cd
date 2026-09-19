@@ -1,10 +1,8 @@
 import 'dotenv/config';
 
-import 'dotenv/config';
-
 function required(name, { allowEmpty = false } = {}) {
   const value = process.env[name];
-  if (value === undefined || (!allowEmpty && value.trim() === '')) {
+  if (value === undefined || (!allowEmpty && String(value).trim() === '')) {
     throw new Error(`Missing required environment variable: ${name}`);
   }
   return value;
@@ -17,6 +15,7 @@ function optional(name, fallback) {
 
 const nodeEnv = optional('NODE_ENV', 'development');
 const isProd = nodeEnv === 'production';
+const isNetlify = Boolean(process.env.NETLIFY || process.env.AWS_LAMBDA_FUNCTION_NAME);
 
 // Fail fast on secrets in production; allow documented defaults in development
 const jwtAccessSecret = isProd
@@ -28,13 +27,12 @@ const jwtRefreshSecret = isProd
 
 if (isProd) {
   required('DATABASE_URL');
-  required('STRIPE_SECRET_KEY');
-  required('STRIPE_WEBHOOK_SECRET');
 }
 
 export const env = {
   nodeEnv,
   isProd,
+  isNetlify,
   port: Number(optional('PORT', '5000')),
   clientUrl: optional('CLIENT_URL', 'http://localhost:5173'),
   databaseUrl: optional(

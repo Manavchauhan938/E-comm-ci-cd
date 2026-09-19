@@ -44,7 +44,13 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: env.clientUrl,
+      origin: (origin, cb) => {
+        // Same-origin / Netlify Functions / local tools
+        if (!origin || origin === env.clientUrl || origin.endsWith('.netlify.app')) {
+          return cb(null, true);
+        }
+        return cb(null, env.clientUrl);
+      },
       credentials: true,
     })
   );

@@ -64,7 +64,7 @@ jobs:
       - name: Build client
         run: npm run build --workspace=client
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_URL: /api
           VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
 
   docker:
@@ -113,13 +113,13 @@ jobs:
             ${{ steps.meta.outputs.prefix }}-client:latest
             ${{ steps.meta.outputs.prefix }}-client:${{ github.sha }}
           build-args: |
-            VITE_API_URL=${{ vars.VITE_API_URL }}
+            VITE_API_URL=/api
             VITE_STRIPE_PUBLISHABLE_KEY=${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy-netlify:
-    name: Deploy frontend to Netlify
+    name: Deploy app to Netlify (SPA + API)
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -138,41 +138,49 @@ jobs:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
         run: |
           if [ -z "$NETLIFY_AUTH_TOKEN" ] || [ -z "$NETLIFY_SITE_ID" ]; then
-            echo "::error::Missing NETLIFY_AUTH_TOKEN or NETLIFY_SITE_ID. Follow DEPLOY.md Step 2–3."
+            echo "::error::Missing NETLIFY_AUTH_TOKEN or NETLIFY_SITE_ID"
             exit 1
           fi
 
       - name: Install
         run: npm install --legacy-peer-deps
 
+      - name: Generate Prisma client
+        run: npm run prisma:generate --workspace=server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
       - name: Build client
         run: npm run build --workspace=client
         env:
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_API_URL: /api
           VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.VITE_STRIPE_PUBLISHABLE_KEY }}
 
       - name: Install Netlify CLI
         run: npm install -g netlify-cli
 
-      - name: Deploy to Netlify (production)
+      - name: Deploy SPA + Functions to Netlify
         env:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+          CI: true
         run: |
           set -euo pipefail
-          # Avoid Netlify CLI monorepo workspace prompts — deploy via API zip upload
-          (cd client/dist && zip -r -q ../../netlify-deploy.zip .)
-          RESPONSE=$(curl -sS -X POST \
-            -H "Content-Type: application/zip" \
-            -H "Authorization: Bearer ${NETLIFY_AUTH_TOKEN}" \
-            --data-binary @netlify-deploy.zip \
-            "https://api.netlify.com/api/v1/sites/${NETLIFY_SITE_ID}/deploys?title=ci-${GITHUB_SHA}")
-          echo "$RESPONSE" | tee deploy-response.json
-          python3 - <<'PY'
-          import json, sys
-          d = json.load(open("deploy-response.json"))
-          if d.get("error") or not d.get("id"):
-              print(d, file=sys.stderr)
-              sys.exit(1)
-          print(f"Deployed: {d.get('ssl_url') or d.get('deploy_ssl_url') or d.get('url')} (id={d['id']}, state={d.get('state')})")
-          PY
+          mkdir -p .netlify
+          printf '{"siteId":"%s"}\n' "$NETLIFY_SITE_ID" > .netlify/state.json
+          # Temp non-workspace root avoids Netlify CLI monorepo prompts
+          STAGE=$(mktemp -d)
+          cp -a client/dist "$STAGE/dist"
+          cp -a netlify "$STAGE/netlify"
+          cp netlify.toml "$STAGE/netlify.toml"
+          cp -a server "$STAGE/server"
+          # Full node_modules so esbuild externals (express, prisma, etc.) resolve
+          cp -a node_modules "$STAGE/node_modules"
+          cd "$STAGE"
+          printf '{"name":"ecomm-netlify-deploy","private":true,"type":"module"}\n' > package.json
+          netlify deploy --prod \
+            --dir=dist \
+            --functions=netlify/functions \
+            --site="$NETLIFY_SITE_ID" \
+            --auth="$NETLIFY_AUTH_TOKEN" \
+            --message "ci ${GITHUB_SHA}"
