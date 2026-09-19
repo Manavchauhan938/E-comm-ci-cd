@@ -168,14 +168,65 @@ jobs:
           set -euo pipefail
           mkdir -p .netlify
           printf '{"siteId":"%s"}\n' "$NETLIFY_SITE_ID" > .netlify/state.json
-          # Temp non-workspace root avoids Netlify CLI monorepo prompts
+          # Temp non-workspace root avoids Netlify CLI monorepo prompts.
+          # Omit build.command — client + Prisma already built in this job.
           STAGE=$(mktemp -d)
           cp -a client/dist "$STAGE/dist"
           cp -a netlify "$STAGE/netlify"
-          cp netlify.toml "$STAGE/netlify.toml"
           cp -a server "$STAGE/server"
-          # Full node_modules so esbuild externals (express, prisma, etc.) resolve
           cp -a node_modules "$STAGE/node_modules"
+          cat > "$STAGE/netlify.toml" <<'EOF'
+          [build]
+            publish = "dist"
+            functions = "netlify/functions"
+
+          [build.environment]
+            NODE_VERSION = "20"
+            VITE_API_URL = "/api"
+
+          [functions]
+            directory = "netlify/functions"
+            node_bundler = "esbuild"
+            external_node_modules = [
+              "@prisma/client",
+              "prisma",
+              "bcryptjs",
+              "pino",
+              "pino-pretty",
+              "pino-http",
+              "stripe",
+              "express",
+              "serverless-http"
+            ]
+
+          [functions."api"]
+            included_files = [
+              "server/prisma/**",
+              "server/src/**",
+              "node_modules/.prisma/**",
+              "node_modules/@prisma/client/**"
+            ]
+
+          [[redirects]]
+            from = "/api/*"
+            to = "/.netlify/functions/api/:splat"
+            status = 200
+            force = true
+
+          [[redirects]]
+            from = "/*"
+            to = "/index.html"
+            status = 200
+
+          [[headers]]
+            for = "/*"
+            [headers.values]
+              X-Frame-Options = "DENY"
+              X-Content-Type-Options = "nosniff"
+              Referrer-Policy = "strict-origin-when-cross-origin"
+          EOF
+          # Strip leading spaces from heredoc so TOML parses cleanly
+          sed -i 's/^          //' "$STAGE/netlify.toml"
           cd "$STAGE"
           printf '{"name":"ecomm-netlify-deploy","private":true,"type":"module"}\n' > package.json
           netlify deploy --prod \
