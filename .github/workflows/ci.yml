@@ -164,76 +164,13 @@ jobs:
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           CI: true
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
           set -euo pipefail
           mkdir -p .netlify
           printf '{"siteId":"%s"}\n' "$NETLIFY_SITE_ID" > .netlify/state.json
-
           STAGE=$(mktemp -d)
-          export STAGE
-          cp -a client/dist "$STAGE/dist"
-          cp -a netlify "$STAGE/netlify"
-          cp -a server "$STAGE/server"
-
-          # Slim package.json: server production deps only (no workspaces / no embedded-postgres)
-          node <<'NODE'
-          const fs = require('fs');
-          const srv = JSON.parse(fs.readFileSync('server/package.json', 'utf8'));
-          const pkg = {
-            name: 'ecomm-netlify-deploy',
-            private: true,
-            type: 'module',
-            dependencies: {
-              ...srv.dependencies,
-              prisma: srv.devDependencies.prisma,
-            },
-          };
-          fs.writeFileSync(process.env.STAGE + '/package.json', JSON.stringify(pkg, null, 2));
-          NODE
-
-          cat > "$STAGE/netlify.toml" <<'EOF'
-          [build]
-            publish = "dist"
-            functions = "netlify/functions"
-
-          [functions]
-            directory = "netlify/functions"
-            node_bundler = "esbuild"
-            external_node_modules = ["@prisma/client", "prisma"]
-
-          [functions."api"]
-            included_files = [
-              "server/prisma/**",
-              "server/src/**",
-              "node_modules/.prisma/**",
-              "node_modules/@prisma/client/**"
-            ]
-
-          [[redirects]]
-            from = "/api/*"
-            to = "/.netlify/functions/api/:splat"
-            status = 200
-            force = true
-
-          [[redirects]]
-            from = "/*"
-            to = "/index.html"
-            status = 200
-
-          [[headers]]
-            for = "/*"
-            [headers.values]
-              X-Frame-Options = "DENY"
-              X-Content-Type-Options = "nosniff"
-              Referrer-Policy = "strict-origin-when-cross-origin"
-          EOF
-          sed -i 's/^          //' "$STAGE/netlify.toml"
-
+          bash scripts/stage-netlify-deploy.sh "$STAGE"
           cd "$STAGE"
-          npm install --omit=dev --legacy-peer-deps
-          npx prisma generate --schema=server/prisma/schema.prisma
-          du -sh node_modules netlify server dist
           netlify deploy --prod --no-build \
             --dir=dist \
             --functions=netlify/functions \

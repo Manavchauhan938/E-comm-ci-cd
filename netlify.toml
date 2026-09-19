@@ -13,14 +13,14 @@
 [functions]
   directory = "netlify/functions"
   node_bundler = "esbuild"
-  # Only Prisma stays external (native engines); everything else is bundled
-  external_node_modules = ["@prisma/client", "prisma"]
+  external_node_modules = ["@prisma/client"]
 
 [functions."api"]
   included_files = [
-    "server/prisma/**",
     "node_modules/.prisma/**",
-    "node_modules/@prisma/client/**"
+    "node_modules/@prisma/client/**",
+    "server/prisma/schema.prisma",
+    "server/src/**"
   ]
 
 # Proxy /api/* to the Express Netlify Function (:splat kept for path rewrite in api.js)
