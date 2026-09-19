@@ -4,14 +4,26 @@ import fs from 'fs';
 import { env } from '../config/env.js';
 import { badRequest } from '../utils/AppError.js';
 
-const uploadRoot = path.resolve(process.cwd(), env.uploadDir);
+// Netlify/Lambda filesystem is read-only except /tmp
+const uploadRoot = env.isNetlify
+  ? path.join('/tmp', env.uploadDir)
+  : path.resolve(process.cwd(), env.uploadDir);
 
-if (!fs.existsSync(uploadRoot)) {
+try {
   fs.mkdirSync(uploadRoot, { recursive: true });
+} catch {
+  // Ignore on read-only FS; uploads will fail at request time if unwritable
 }
 
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadRoot),
+  destination: (_req, _file, cb) => {
+    try {
+      fs.mkdirSync(uploadRoot, { recursive: true });
+      cb(null, uploadRoot);
+    } catch (err) {
+      cb(err);
+    }
+  },
   filename: (_req, file, cb) => {
     const unique = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     const ext = path.extname(file.originalname).toLowerCase();
