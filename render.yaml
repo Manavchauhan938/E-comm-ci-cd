@@ -1,0 +1,38 @@
+# Optional: one-click backend on Render.com (Docker + Postgres)
+# Connect this repo in Render → New Blueprint Instance
+
+services:
+  - type: web
+    name: ecomm-api
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 5000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: ecomm-db
+          property: connectionString
+      - key: CLIENT_URL
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: 'true'
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+
+databases:
+  - name: ecomm-db
+    plan: free
+    databaseName: ecomm
+    user: ecomm

@@ -1,8 +1,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
+COPY package.json ./
 COPY prisma ./prisma
-RUN npm ci || npm install
+RUN npm install --legacy-peer-deps
 RUN npx prisma generate
 
 FROM node:20-alpine AS runner
@@ -12,4 +12,6 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
 EXPOSE 5000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:5000/api/health || exit 1
 CMD ["sh", "-c", "npx prisma migrate deploy && node src/index.js"]

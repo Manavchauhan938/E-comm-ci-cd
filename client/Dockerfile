@@ -1,14 +1,15 @@
+# Build context is ./client (see docker-compose / GitHub Actions)
 FROM node:20-alpine AS deps
 WORKDIR /app
-COPY package.json package-lock.json* ./
-RUN npm ci || npm install
+COPY package.json ./
+RUN npm install --legacy-peer-deps
 
 FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG VITE_API_URL
-ARG VITE_STRIPE_PUBLISHABLE_KEY
+ARG VITE_API_URL=http://localhost:5000/api
+ARG VITE_STRIPE_PUBLISHABLE_KEY=pk_test_placeholder
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_STRIPE_PUBLISHABLE_KEY=$VITE_STRIPE_PUBLISHABLE_KEY
 RUN npm run build

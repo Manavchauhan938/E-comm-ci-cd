@@ -101,56 +101,10 @@ docker compose up --build
 
 ## Deployment
 
-### Backend (Render / Railway / Fly.io)
+See **[DEPLOY.md](./DEPLOY.md)** for the full GitHub Actions → Docker → Netlify + Render guide.
 
-1. Connect the repo; set root to `server` (or build from monorepo with `npm install` + `npm run start --workspace=server`).
-2. Provision PostgreSQL; set `DATABASE_URL`.
-3. Set env vars from `server/.env.example` (use strong JWT secrets, `COOKIE_SECURE=true`, real Stripe keys).
-4. Release command: `npx prisma migrate deploy`
-5. Start: `node src/index.js`
-6. Point Stripe webhook to `https://<api>/api/payments/webhook`
+Quick summary:
 
-### Frontend (Vercel / Netlify)
-
-1. Root directory: `client`
-2. Build: `npm run build`
-3. Output: `dist`
-4. Env: `VITE_API_URL=https://<api>/api`, `VITE_STRIPE_PUBLISHABLE_KEY=pk_live_...`
-5. Never put server secrets in `VITE_*` vars
-
-## Production launch checklist
-
-- [ ] All env vars set (JWT, DB, Stripe, `CLIENT_URL`, `COOKIE_SECURE=true`)
-- [ ] `prisma migrate deploy` succeeded
-- [ ] Stripe webhook signature verified in live mode
-- [ ] HTTPS enforced at the edge
-- [ ] DB backups enabled
-- [ ] Error monitoring (e.g. Sentry) wired on client + server
-- [ ] Analytics (e.g. Plausible/GA) added
-- [ ] Admin account password rotated from seed defaults
-- [ ] Rate limits reviewed for your traffic profile
-- [ ] Lighthouse pass on home + product pages (LCP/CLS)
-
-## Security notes (Prompt 17)
-
-| Issue | Fix applied |
-| ----- | ----------- |
-| Secrets in JWT | Access token carries only `sub` + `role`; user reloaded from DB in `authenticate` |
-| Brute-force login | `authLimiter` on login/register |
-| Refresh token theft | httpOnly cookie, rotate on refresh, revoke on logout/password reset |
-| XSS via uploads | MIME allowlist + size limit (multer) |
-| Stripe webhook spoofing | Raw body + signature verification |
-| Admin route bypass | Backend `authorize('ADMIN')` + frontend `AdminRoute` |
-| Helmet/CSP | Enabled in production |
-| SQL injection | Prisma queries; stock update uses parameterized `$executeRaw` |
-| Env leakage | Only `VITE_*` exposed to client bundle |
-| CSRF (cookie auth) | Refresh cookie scoped to `/api/auth`, `SameSite=Lax`; mutations use Bearer access token |
-
-## Lighthouse checklist (Prompt 16)
-
-- Route-level code splitting (`React.lazy`)
-- Image `loading="lazy"` + hero `fetchPriority="high"`
-- `robots.txt` + `sitemap.xml`
-- Compression middleware on API
-- Product list in-memory cache (30s TTL)
-- Avoid layout shift: fixed aspect ratios on product images
+- **Frontend** → Netlify (`netlify.toml`)
+- **API** → Docker image on GHCR + Render Blueprint (`render.yaml`)
+- **CI/CD** → `.github/workflows/ci.yml` (test → Docker push → Netlify deploy)
