@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useCartStore } from '../store/cartStore';
 import { useUiStore } from '../store/uiStore';
 import { Button, Card, Input } from '../components/ui';
 
 export default function LoginPage() {
   const login = useAuthStore((s) => s.login);
+  const fetchCart = useCartStore((s) => s.fetchCart);
   const toast = useUiStore((s) => s.toast);
   const navigate = useNavigate();
   const location = useLocation();
@@ -18,6 +20,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email, password);
+      // Merge guest cart into the signed-in user cart
+      await fetchCart();
       navigate(location.state?.from || '/');
     } catch (err) {
       toast({ type: 'error', message: err.response?.data?.message || 'Login failed' });

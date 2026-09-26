@@ -60,6 +60,7 @@ function PaymentStep({ orderId, onPaid }) {
 export default function CheckoutPage() {
   const user = useAuthStore((s) => s.user);
   const cart = useCartStore((s) => s.cart);
+  const guestId = useCartStore((s) => s.guestId);
   const fetchCart = useCartStore((s) => s.fetchCart);
   const toast = useUiStore((s) => s.toast);
   const navigate = useNavigate();
@@ -69,6 +70,7 @@ export default function CheckoutPage() {
   const [order, setOrder] = useState(null);
   const [clientSecret, setClientSecret] = useState(null);
   const [coupon, setCoupon] = useState('');
+  const [placing, setPlacing] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(addressSchema),
@@ -96,17 +98,23 @@ export default function CheckoutPage() {
   };
 
   const createOrder = async () => {
+    setPlacing(true);
     try {
+      // Pass guestId so any pre-login cart items are merged into the user cart
       const { data } = await api.post('/orders', {
         shippingAddressId: selectedAddress,
         couponCode: coupon || undefined,
+        guestId: guestId || undefined,
       });
       setOrder(data.data);
+      await fetchCart();
       const intent = await api.post('/payments/create-intent', { orderId: data.data.id });
       setClientSecret(intent.data.data.clientSecret);
       setStep(3);
     } catch (err) {
       toast({ type: 'error', message: err.response?.data?.message || 'Checkout failed' });
+    } finally {
+      setPlacing(false);
     }
   };
 
@@ -187,7 +195,9 @@ export default function CheckoutPage() {
             <Button variant="outline" onClick={() => setStep(1)}>
               Back
             </Button>
-            <Button onClick={createOrder}>Place order & pay</Button>
+            <Button onClick={createOrder} loading={placing}>
+              Place order & pay
+            </Button>
           </div>
         </Card>
       )}

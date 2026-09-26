@@ -8,6 +8,7 @@ export const addCartItemSchema = z.object({
 
 export const updateCartItemSchema = z.object({
   quantity: z.coerce.number().int().min(0).max(99),
+  guestId: z.string().min(8).max(64).optional(),
 });
 
 export const cartQuerySchema = z.object({

@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { useCartStore } from '../store/cartStore';
 import { useUiStore } from '../store/uiStore';
 import { Button, Card, Input } from '../components/ui';
 
 export default function RegisterPage() {
   const register = useAuthStore((s) => s.register);
+  const fetchCart = useCartStore((s) => s.fetchCart);
   const toast = useUiStore((s) => s.toast);
   const navigate = useNavigate();
   const [form, setForm] = useState({ name: '', email: '', password: '' });
@@ -16,6 +18,7 @@ export default function RegisterPage() {
     setLoading(true);
     try {
       await register(form);
+      await fetchCart();
       navigate('/');
     } catch (err) {
       toast({ type: 'error', message: err.response?.data?.message || 'Registration failed' });
