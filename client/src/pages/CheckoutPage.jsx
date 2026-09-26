@@ -35,16 +35,26 @@ function PaymentStep({ orderId, onPaid }) {
     e.preventDefault();
     if (!stripe || !elements) return;
     setLoading(true);
-    const { error } = await stripe.confirmPayment({
-      elements,
-      redirect: 'if_required',
-    });
-    setLoading(false);
-    if (error) {
-      toast({ type: 'error', message: error.message });
-      return;
+    try {
+      const { error, paymentIntent } = await stripe.confirmPayment({
+        elements,
+        redirect: 'if_required',
+      });
+      if (error) {
+        toast({ type: 'error', message: error.message });
+        return;
+      }
+      if (paymentIntent?.status === 'succeeded' || paymentIntent?.status === 'processing') {
+        await api.post('/payments/confirm', { orderId });
+        onPaid(orderId);
+        return;
+      }
+      toast({ type: 'error', message: 'Payment was not completed. Please try again.' });
+    } catch (err) {
+      toast({ type: 'error', message: err.response?.data?.message || 'Payment failed' });
+    } finally {
+      setLoading(false);
     }
-    onPaid(orderId);
   };
 
   return (
@@ -53,6 +63,9 @@ function PaymentStep({ orderId, onPaid }) {
       <Button type="submit" loading={loading} className="w-full">
         Pay now
       </Button>
+      <p className="text-center text-xs text-slate-500">
+        Test card: 4242 4242 4242 4242 · any future expiry · any CVC
+      </p>
     </form>
   );
 }

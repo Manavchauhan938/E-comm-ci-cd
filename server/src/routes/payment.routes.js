@@ -14,6 +14,13 @@ router.post(
 );
 
 router.post(
+  '/confirm',
+  authenticate,
+  validate(createPaymentIntentSchema),
+  paymentController.confirm
+);
+
+router.post(
   '/refund/:orderId',
   authenticate,
   authorize('ADMIN'),

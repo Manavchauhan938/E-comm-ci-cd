@@ -60,7 +60,59 @@ export async function createPaymentIntent(orderId, userId) {
   };
 }
 
+export async function confirmPayment(orderId, userId) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { payment: true },
+  });
+  if (!order) throw notFound('Order not found');
+  if (order.userId !== userId) throw badRequest('Not your order');
+  if (!order.payment?.stripePaymentIntentId) {
+    throw badRequest('No payment intent for this order');
+  }
+
+  const stripe = getStripe();
+  const intent = await stripe.paymentIntents.retrieve(order.payment.stripePaymentIntentId);
+
+  if (intent.status === 'succeeded') {
+    await markPaymentSucceeded(intent);
+    const updated = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payment: true, items: true },
+    });
+    return {
+      status: 'SUCCEEDED',
+      orderStatus: updated?.status ?? 'PAID',
+      paymentIntentId: intent.id,
+    };
+  }
+
+  if (intent.status === 'processing' || intent.status === 'requires_capture') {
+    return {
+      status: intent.status.toUpperCase(),
+      orderStatus: order.status,
+      paymentIntentId: intent.id,
+    };
+  }
+
+  if (intent.status === 'requires_payment_method' || intent.status === 'canceled') {
+    await markPaymentFailed(intent);
+    throw badRequest(intent.last_payment_error?.message || 'Payment was not completed');
+  }
+
+  return {
+    status: intent.status.toUpperCase(),
+    orderStatus: order.status,
+    paymentIntentId: intent.id,
+  };
+}
+
 export async function handleWebhook(rawBody, signature) {
+  if (!env.stripeWebhookSecret) {
+    logger.warn('Stripe webhook secret not configured — ignoring webhook');
+    return { received: true, ignored: true };
+  }
+
   const stripe = getStripe();
   let event;
   try {

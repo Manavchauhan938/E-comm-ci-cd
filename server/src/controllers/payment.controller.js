@@ -7,6 +7,11 @@ export const createIntent = asyncHandler(async (req, res) => {
   return sendSuccess(res, { message: 'Payment intent created', data });
 });
 
+export const confirm = asyncHandler(async (req, res) => {
+  const data = await paymentService.confirmPayment(req.body.orderId, req.user.id);
+  return sendSuccess(res, { message: 'Payment confirmed', data });
+});
+
 export const webhook = asyncHandler(async (req, res) => {
   const signature = req.headers['stripe-signature'];
   const data = await paymentService.handleWebhook(req.body, signature);
