@@ -103,7 +103,7 @@ async function main() {
       sku: 'HOM-ORBIT-01',
       categoryId: electronics.id,
       images: [
-        'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?w=800&q=80',
+        'https://images.unsplash.com/photo-1517991104123-1d56a6e81ed9?w=800&q=80',
       ],
     },
   ];
@@ -111,7 +111,7 @@ async function main() {
   for (const p of products) {
     await prisma.product.upsert({
       where: { slug: p.slug },
-      update: {},
+      update: { images: p.images },
       create: p,
     });
   }
