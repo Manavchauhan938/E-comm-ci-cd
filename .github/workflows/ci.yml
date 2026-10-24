@@ -177,3 +177,34 @@ jobs:
             --site="$NETLIFY_SITE_ID" \
             --auth="$NETLIFY_AUTH_TOKEN" \
             --message "ci ${GITHUB_SHA}"
+
+  playwright-java:
+    name: Playwright Java (Netlify)
+    needs: test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: e2e-java
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+          cache-dependency-path: e2e-java/pom.xml
+
+      - name: Install Chromium
+        run: mvn -B exec:java -Dexec.classpathScope=test -Dexec.args="install --with-deps chromium"
+
+      - name: Run Playwright tests
+        run: mvn -B test
+
+      - name: Upload Surefire reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-surefire-reports
+          path: e2e-java/target/surefire-reports
