@@ -1,0 +1,29 @@
+name: Seed Neon
+
+on:
+  workflow_dispatch:
+
+jobs:
+  seed:
+    name: Apply Prisma seed to Neon
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm install --legacy-peer-deps
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate --workspace=server
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Seed
+        working-directory: server
+        run: npx prisma db seed
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
